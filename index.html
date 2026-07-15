@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Copa Missionária das Nações</title>
+
+    <!-- Fontes via internet (opcional). Se estiver OFFLINE, o app usa fontes do sistema automaticamente. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Nunito:wght@400;600;700;800;900&display=swap"
+        rel="stylesheet">
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- =========================================================
+         TELA 1 — CONFIGURAÇÃO
+    ========================================================= -->
+    <section id="tela-setup" class="tela">
+        <div class="wrap">
+
+            <div class="marca">
+                <h1>🏆 COPA MISSIONÁRIA <span class="ouro">DAS NAÇÕES</span></h1>
+                <p>Quem conhece a Palavra faz Gol!</p>
+            </div>
+
+            <div class="painel">
+                <h2>1 · Quantas equipes vão competir?</h2>
+                <p class="dica">O chaveamento é montado automaticamente conforme o número de equipes.</p>
+                <div class="escolha-times" id="escolha-times">
+                    <button data-n="4">4 equipes</button>
+                    <button data-n="8" class="ativo">8 equipes</button>
+                    <button data-n="16">16 equipes</button>
+                </div>
+            </div>
+
+            <div class="painel">
+                <h2>2 · Nomes e bandeiras das equipes</h2>
+                <p class="dica">Escolha a bandeira e edite o nome de cada equipe. A ordem define os confrontos.</p>
+                <div class="grid-times" id="grid-times"><!-- gerado via JS --></div>
+            </div>
+
+            <div class="center">
+                <button id="btn-iniciar" class="btn-verde btn-grande">🏟️ INICIAR A COPA</button>
+            </div>
+
+            <div class="versiculo">
+                <strong>🌍 IDE POR TODO O MUNDO E PREGAI O EVANGELHO</strong>
+                <span>Marcos 16:15</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- =========================================================
+         TELA 2 — JOGO (ESTÁDIO)
+    ========================================================= -->
+    <section id="tela-jogo" class="tela hidden">
+        <div class="wrap">
+
+            <div class="topbar">
+                <div class="fase-info">
+                    <span class="fase-nome" id="fase-nome">Quartas de Final</span>
+                    · <span id="jogo-num">Jogo 1</span>
+                </div>
+                <div class="acoes-topo">
+                    <button class="btn-fantasma" id="btn-chave">🏆 Ver Chave</button>
+                    <button class="btn-fantasma" id="btn-som">🔊 Som: ON</button>
+                    <button class="btn-fantasma" id="btn-voz">🎙️ Voz: ON</button>
+                    <button class="btn-fantasma" id="btn-tela-cheia">📺 Tela Cheia</button>
+                </div>
+            </div>
+
+            <!-- PLACAR ESTÁDIO -->
+            <div class="placar-estadio">
+                <!-- TIME A -->
+                <div class="time-card lado-a" id="card-a">
+                    <div class="bandeira" id="band-a">🇧🇷</div>
+                    <div class="nome" id="nome-a">Brasil</div>
+                    <div class="led-placar" id="placar-a">0</div>
+                    <button class="btn-gol" id="gol-a">⚽ GOL</button>
+                </div>
+
+                <!-- CENTRO -->
+                <div class="centro-placar">
+                    <div class="versus">VS</div>
+                    <div class="cronometro-num" id="cronometro">00:30</div>
+                    <div class="barra-tempo"><div class="preenchimento" id="barra-tempo"></div></div>
+                    <div class="controles-tempo">
+                        <button class="btn-verde" id="btn-tempo">▶</button>
+                        <button class="btn-cinza" id="btn-tempo-reset">⟲</button>
+                    </div>
+                </div>
+
+                <!-- TIME B -->
+                <div class="time-card lado-b" id="card-b">
+                    <div class="bandeira" id="band-b">🇯🇵</div>
+                    <div class="nome" id="nome-b">Japão</div>
+                    <div class="led-placar" id="placar-b">0</div>
+                    <button class="btn-gol" id="gol-b">⚽ GOL</button>
+                </div>
+            </div>
+
+            <!-- PERGUNTA -->
+            <div class="painel-pergunta">
+                <div class="pergunta-topo">
+                    <h2>📖 Pergunta</h2>
+                    <span class="valor-pergunta" id="valor-pergunta">?? Gols</span>
+                </div>
+                <div class="pergunta-texto" id="pergunta">Clique em “Sortear Pergunta” para começar</div>
+                <div class="resposta-texto hidden" id="resposta"></div>
+                <div class="pergunta-botoes">
+                    <button class="btn-azul btn" id="sortear">🎲 Sortear Pergunta</button>
+                    <button class="btn-verde btn" id="mostrar-resposta">✅ Mostrar Resposta</button>
+                </div>
+                <div class="contador-perguntas" id="contador-perguntas"></div>
+            </div>
+
+            <!-- CARTAS ESPECIAIS -->
+            <div class="cartas" id="cartas"><!-- gerado via JS --></div>
+
+            <!-- PAINEL DO LÍDER -->
+            <div class="painel-lider">
+                <h3>📋 Painel do Líder</h3>
+                <div class="linha">
+                    <button class="btn-laranja btn" id="btn-encerrar">🏁 Encerrar Partida</button>
+                    <button class="btn-roxo btn" id="btn-menos-a">➖ Corrigir gol A</button>
+                    <button class="btn-roxo btn" id="btn-menos-b">➖ Corrigir gol B</button>
+                    <button class="btn-cinza btn" id="btn-reiniciar-partida">🔄 Zerar Placar</button>
+                    <button class="btn-vermelho btn" id="btn-reiniciar-copa">⚠️ Reiniciar Copa</button>
+                </div>
+            </div>
+
+            <div class="versiculo">
+                <strong>⚽ QUEM CONHECE A PALAVRA FAZ GOL!</strong>
+            </div>
+        </div>
+    </section>
+
+    <!-- =========================================================
+         TELA 3 — CHAVEAMENTO
+    ========================================================= -->
+    <section id="tela-chave" class="tela hidden">
+        <div class="wrap">
+            <div class="marca">
+                <h1>🏆 CHAVE DO <span class="ouro">CAMPEONATO</span></h1>
+            </div>
+            <div class="chave" id="chave"><!-- gerado via JS --></div>
+            <p class="chave-legenda">A equipe destacada em ouro é o confronto atual. O vencedor avança automaticamente.</p>
+            <div class="center" style="margin-top:18px;">
+                <button class="btn-verde btn-grande" id="btn-voltar-jogo">▶ Voltar ao Jogo</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- =========================================================
+         TELA 4 — CAMPEÃO
+    ========================================================= -->
+    <section id="tela-campeao" class="tela hidden">
+        <div class="campeao-box">
+            <div class="trofeu">🏆</div>
+            <div class="campeao-flag" id="campeao-flag">🇧🇷</div>
+            <div class="campeao-titulo">GRANDE CAMPEÃ DA COPA MISSIONÁRIA</div>
+            <div class="campeao-nome" id="campeao-nome">Brasil</div>
+            <button class="btn-amarelo btn-grande" id="btn-nova-copa">🎉 Nova Copa</button>
+        </div>
+    </section>
+
+    <!-- =========================================================
+         REVELAÇÃO DA RESPOSTA (destaque no telão)
+    ========================================================= -->
+    <div id="reveal-overlay" class="reveal-overlay hidden"></div>
+
+    <!-- =========================================================
+         MODAL (pênaltis / confirmações)
+    ========================================================= -->
+    <div id="modal" class="modal hidden"></div>
+
+    <script src="perguntas.js"></script>
+    <script src="script.js"></script>
+</body>
+
+</html>
