@@ -27,29 +27,37 @@
                 <p>Quem conhece a Palavra faz Gol!</p>
             </div>
 
-            <div class="painel">
-                <h2>1 · Quantas equipes vão competir?</h2>
-                <p class="dica">O chaveamento é montado automaticamente conforme o número de equipes.</p>
-                <div class="escolha-times" id="escolha-times">
-                    <button data-n="4">4 equipes</button>
-                    <button data-n="8" class="ativo">8 equipes</button>
-                    <button data-n="16">16 equipes</button>
+            <div class="painel painel-compacto">
+                <div class="setup-linha">
+                    <div class="setup-bloco">
+                        <h2>1 · Quantas equipes?</h2>
+                        <div class="escolha-times" id="escolha-times">
+                            <button data-n="4">4 equipes</button>
+                            <button data-n="8" class="ativo">8 equipes</button>
+                            <button data-n="16">16 equipes</button>
+                        </div>
+                    </div>
+                    <div class="setup-bloco">
+                        <h2>2 · Tem crianças menores de 6 anos?</h2>
+                        <button class="toggle-modo" id="btn-modo-card-setup">🧸 Modo Card Visual: OFF</button>
+                        <p class="dica dica-inline">Ligue para usar cards visuais impressos: o app mostra só
+                            <strong>Acertou / Errou</strong>.</p>
+                    </div>
                 </div>
             </div>
 
-            <div class="painel">
-                <h2>2 · Nomes e bandeiras das equipes</h2>
+            <div class="painel painel-times">
+                <h2>3 · Nomes e bandeiras das equipes</h2>
                 <p class="dica">Escolha a bandeira e edite o nome de cada equipe. A ordem define os confrontos.</p>
                 <div class="grid-times" id="grid-times"><!-- gerado via JS --></div>
             </div>
 
-            <div class="center">
+            <div class="center rodape-setup">
                 <button id="btn-iniciar" class="btn-verde btn-grande">🏟️ INICIAR A COPA</button>
-            </div>
-
-            <div class="versiculo">
-                <strong>🌍 IDE POR TODO O MUNDO E PREGAI O EVANGELHO</strong>
-                <span>Marcos 16:15</span>
+                <div class="versiculo">
+                    <strong>🌍 IDE POR TODO O MUNDO E PREGAI O EVANGELHO</strong>
+                    <span>Marcos 16:15</span>
+                </div>
             </div>
         </div>
     </section>
@@ -66,6 +74,7 @@
                     · <span id="jogo-num">Jogo 1</span>
                 </div>
                 <div class="acoes-topo">
+                    <button class="btn-fantasma" id="btn-modo-card">🧸 Card: OFF</button>
                     <button class="btn-fantasma" id="btn-chave">🏆 Ver Chave</button>
                     <button class="btn-fantasma" id="btn-som">🔊 Som: ON</button>
                     <button class="btn-fantasma" id="btn-voz">🎙️ Voz: ON</button>
@@ -77,10 +86,10 @@
             <div class="placar-estadio">
                 <!-- TIME A -->
                 <div class="time-card lado-a" id="card-a">
+                    <div class="badge-vez">🎙️ RESPONDENDO</div>
                     <div class="bandeira" id="band-a">🇧🇷</div>
                     <div class="nome" id="nome-a">Brasil</div>
                     <div class="led-placar" id="placar-a">0</div>
-                    <button class="btn-gol" id="gol-a">⚽ GOL</button>
                 </div>
 
                 <!-- CENTRO -->
@@ -96,17 +105,17 @@
 
                 <!-- TIME B -->
                 <div class="time-card lado-b" id="card-b">
+                    <div class="badge-vez">🎙️ RESPONDENDO</div>
                     <div class="bandeira" id="band-b">🇯🇵</div>
                     <div class="nome" id="nome-b">Japão</div>
                     <div class="led-placar" id="placar-b">0</div>
-                    <button class="btn-gol" id="gol-b">⚽ GOL</button>
                 </div>
             </div>
 
             <!-- PERGUNTA -->
             <div class="painel-pergunta">
                 <div class="pergunta-topo">
-                    <h2>📖 Pergunta</h2>
+                    <h2 class="vez-indicador">🎙️ Vez de: <span id="vez-nome">Brasil</span></h2>
                     <span class="valor-pergunta" id="valor-pergunta">?? Gols</span>
                 </div>
                 <div class="pergunta-texto" id="pergunta">Clique em “Sortear Pergunta” para começar</div>
@@ -114,6 +123,8 @@
                 <div class="pergunta-botoes">
                     <button class="btn-azul btn" id="sortear">🎲 Sortear Pergunta</button>
                     <button class="btn-verde btn" id="mostrar-resposta">✅ Mostrar Resposta</button>
+                    <button class="btn-verde btn-grande hidden" id="btn-acertou">⚽ ACERTOU — GOL!</button>
+                    <button class="btn-vermelho btn-grande hidden" id="btn-errou">❌ ERROU</button>
                 </div>
                 <div class="contador-perguntas" id="contador-perguntas"></div>
             </div>
@@ -123,18 +134,15 @@
 
             <!-- PAINEL DO LÍDER -->
             <div class="painel-lider">
-                <h3>📋 Painel do Líder</h3>
                 <div class="linha">
+                    <h3>📋 Líder</h3>
                     <button class="btn-laranja btn" id="btn-encerrar">🏁 Encerrar Partida</button>
-                    <button class="btn-roxo btn" id="btn-menos-a">➖ Corrigir gol A</button>
-                    <button class="btn-roxo btn" id="btn-menos-b">➖ Corrigir gol B</button>
+                    <button class="btn-roxo btn" id="btn-menos-a">➖ Gol A</button>
+                    <button class="btn-roxo btn" id="btn-menos-b">➖ Gol B</button>
+                    <button class="btn-cinza btn" id="btn-trocar-vez">🔁 Trocar Vez</button>
                     <button class="btn-cinza btn" id="btn-reiniciar-partida">🔄 Zerar Placar</button>
                     <button class="btn-vermelho btn" id="btn-reiniciar-copa">⚠️ Reiniciar Copa</button>
                 </div>
-            </div>
-
-            <div class="versiculo">
-                <strong>⚽ QUEM CONHECE A PALAVRA FAZ GOL!</strong>
             </div>
         </div>
     </section>

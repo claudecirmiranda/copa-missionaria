@@ -36,17 +36,33 @@ let estado = {
     times: [],        // [{nome, band}] na ordem sorteada
     rodadas: [],      // [ [ {a,b,sa,sb,venc} ] ]  a/b = índice em times ou null
     atual: { r:0, j:0 },
+    vez: "a",         // equipe que está respondendo agora (revezamento)
+    modoCard: false,  // true = cards visuais impressos (crianças < 6 anos)
     somOn: true,
     vozOn: true
 };
 
+/* Fases do turno:
+   aguardando  → ninguém respondendo, líder sorteia a pergunta da vez
+   respondendo → pergunta na tela, cronômetro correndo
+   julgando    → resposta revelada, cronômetro parado, líder marca acertou/errou */
+let fase = "aguardando";
+
 let perguntaAtual = null;
 let modificador = null;   // {tipo, mult, valorFixo, texto}
-let tempoEsgotado = false; // quando o cronômetro zera, a pergunta é "queimada"
 
 let tempo = TEMPO_PADRAO;
 let timer = null;
 let rodando = false;
+
+// Narrações de erro (o clássico "quase gol" de estádio)
+const FRASES_ERRO = [
+    "🥅 Na trave!",
+    "😮 Pra fora!",
+    "🧤 Defesa do goleiro!",
+    "😅 Passou raspando!",
+    "🙈 Por cima do travessão!"
+];
 
 /* =========================================================
    3. ATALHOS DE ELEMENTOS
@@ -194,8 +210,11 @@ function narrar(texto, empolgado){
 function toast(msg, cor){
     const t = document.createElement("div");
     t.textContent = msg;
+    // Fica no topo (o rodapé é do Painel do Líder, usado a cada turno) e
+    // pointer-events:none para nunca roubar o clique de um botão embaixo.
     t.style.cssText =
-        "position:fixed;left:50%;bottom:34px;transform:translateX(-50%);z-index:9999;" +
+        "position:fixed;left:50%;top:76px;transform:translateX(-50%);z-index:9999;" +
+        "pointer-events:none;" +
         "background:" + (cor || "#0f4fa8") + ";color:#fff;font-weight:800;font-size:1.1rem;" +
         "padding:14px 26px;border-radius:16px;box-shadow:0 12px 30px rgba(0,0,0,.4);" +
         "max-width:90vw;text-align:center;animation:fadeTela .3s;";
@@ -243,6 +262,8 @@ function renderSetup(){
         b.classList.toggle("ativo", Number(b.dataset.n) === estado.numTimes);
     });
 
+    aplicarModoCard();
+
     const grid = $("grid-times");
     grid.innerHTML = estado.times.map((t, i) => `
         <div class="time-linha">
@@ -275,6 +296,37 @@ function renderSetup(){
 document.querySelectorAll("#escolha-times button").forEach(b => {
     b.onclick = () => { estado.numTimes = Number(b.dataset.n); renderSetup(); };
 });
+
+/* Modo Card Visual — para crianças menores de 6 anos.
+   O card com a pergunta é físico (impresso) e os pais ajudam; o app
+   mostra só os botões Acertou/Errou e continua cronometrando. */
+function aplicarModoCard(){
+    const rotulo = estado.modoCard ? "ON" : "OFF";
+    const bs = $("btn-modo-card-setup");
+    const bj = $("btn-modo-card");
+    if(bs){
+        bs.textContent = `🧸 Modo Card Visual: ${rotulo}`;
+        bs.classList.toggle("ligado", estado.modoCard);
+    }
+    if(bj) bj.textContent = `🧸 Card: ${rotulo}`;
+    document.body.classList.toggle("modo-card", estado.modoCard);
+}
+
+function alternarModoCard(){
+    estado.modoCard = !estado.modoCard;
+    aplicarModoCard();
+    salvar();
+    if(!telas.jogo.classList.contains("hidden")){
+        // troca de modo no meio do jogo: recomeça o turno da equipe da vez
+        prepararTurno();
+    }
+    toast(estado.modoCard
+        ? "🧸 Modo Card Visual ligado — use os cards impressos."
+        : "📖 Modo normal — perguntas na tela.", "#1666c9");
+}
+
+$("btn-modo-card-setup").onclick = alternarModoCard;
+$("btn-modo-card").onclick = alternarModoCard;
 
 $("btn-iniciar").onclick = () => {
     garantirTimes(estado.numTimes);
@@ -378,6 +430,7 @@ function definirVencedor(lado){
     const prox = proximaPartidaPendente();
     if(prox){
         estado.atual = prox;
+        estado.vez = "a"; // nova partida sempre começa pela equipe da esquerda
         renderChave();
         mostrarTela("chave");
         setTimeout(() => {
@@ -401,14 +454,79 @@ function carregarPartida(){
     $("nome-b").textContent = nomeTime(p.b);
     $("placar-a").textContent = p.sa;
     $("placar-b").textContent = p.sb;
-    perguntaAtual = null;
+    if(estado.vez !== "a" && estado.vez !== "b") estado.vez = "a";
     modificador = null;
-    $("pergunta").textContent = 'Clique em “Sortear Pergunta” para começar';
-    $("resposta").classList.add("hidden");
-    $("valor-pergunta").textContent = "?? Gols";
     atualizarVencendo();
     atualizarContador();
+    prepararTurno();
+}
+
+/* =========================================================
+   10.1 TURNO / REVEZAMENTO
+   O gol é sempre da equipe da vez — não existe mais botão "GOL"
+   em cada card; quem marca é quem estava respondendo.
+   ========================================================= */
+
+function timeDaVez(){
+    const p = getPartida();
+    return estado.vez === "a" ? p.a : p.b;
+}
+
+function nomeDaVez(){ return nomeTime(timeDaVez()); }
+
+function passarVez(){
+    estado.vez = estado.vez === "a" ? "b" : "a";
+}
+
+// Volta o turno ao início (aguardando sorteio) para a equipe da vez
+function prepararTurno(){
+    fase = "aguardando";
+    perguntaAtual = null;
+    $("resposta").classList.add("hidden");
+    $("resposta").textContent = "";
+    $("valor-pergunta").textContent = estado.modoCard ? "⚽ 1 Gol" : "?? Gols";
     resetarTempo();
+    renderTurno();
+    salvar();
+}
+
+function renderTurno(){
+    const p = getPartida();
+    const vezA = estado.vez === "a";
+
+    $("card-a").classList.toggle("vez", vezA);
+    $("card-b").classList.toggle("vez", !vezA);
+    $("vez-nome").textContent = nomeDaVez();
+
+    const sortear = $("sortear");
+    const mostrar = $("mostrar-resposta");
+    const acertou = $("btn-acertou");
+    const errou   = $("btn-errou");
+
+    // Visibilidade dos botões conforme a fase do turno
+    sortear.classList.toggle("hidden", fase !== "aguardando");
+    mostrar.classList.toggle("hidden", fase !== "respondendo");
+    acertou.classList.toggle("hidden", fase !== "julgando");
+    errou.classList.toggle("hidden", fase !== "julgando");
+
+    // O <span> é obrigatório: .pergunta-texto é flex e descartaria os
+    // espaços em volta do <strong>, colando as palavras.
+    if(estado.modoCard){
+        sortear.textContent = `▶ Começar a vez de ${nomeDaVez()}`;
+        if(fase === "aguardando"){
+            $("pergunta").innerHTML =
+                `<span>🧸 <strong>Modo Card Visual</strong><br>Mostre o card impresso para ${nomeDaVez()} e clique em “Começar a vez”.</span>`;
+        } else {
+            $("pergunta").innerHTML =
+                `<span>🧸 Card na mão de <strong>${nomeDaVez()}</strong> — os pais podem ajudar!</span>`;
+        }
+        return;
+    }
+
+    sortear.textContent = `🎲 Sortear Pergunta — ${nomeDaVez()}`;
+    if(fase === "aguardando"){
+        $("pergunta").textContent = `🎙️ Vez de ${nomeDaVez()} — clique em “Sortear Pergunta”.`;
+    }
 }
 
 /* Controle de perguntas já feitas no campeonato (sem repetição) */
@@ -445,13 +563,31 @@ function atualizarVencendo(){
    ========================================================= */
 
 $("sortear").onclick = () => {
-    perguntaAtual = sortearPergunta();
-    $("pergunta").textContent = perguntaAtual.pergunta;
+    if(fase !== "aguardando") return;
+    ctx();
     $("resposta").classList.add("hidden");
     $("resposta").textContent = "";
-    let g = perguntaAtual.gols;
-    $("valor-pergunta").textContent = "⚽ ".repeat(g) + `(${g} Gol${g>1?"s":""})`;
-    atualizarContador();
+
+    if(estado.modoCard){
+        // Card impresso: nada de pergunta na tela, vai direto para o julgamento
+        perguntaAtual = null;
+        fase = "julgando";
+        $("valor-pergunta").textContent = "⚽ 1 Gol";
+        narrar(`Vez de ${nomeDaVez()}. Valendo!`);
+    } else {
+        perguntaAtual = sortearPergunta();
+        if(perguntaAtual.reiniciou){
+            toast("🔄 Todas as perguntas já foram usadas — recomeçando o banco.", "#ef8a00");
+        }
+        fase = "respondendo";
+        $("pergunta").textContent = perguntaAtual.pergunta;
+        const g = perguntaAtual.gols;
+        $("valor-pergunta").textContent = "⚽ ".repeat(g) + `(${g} Gol${g>1?"s":""})`;
+        atualizarContador();
+        narrar(`Pergunta para ${nomeDaVez()}. ${perguntaAtual.pergunta}`);
+    }
+
+    renderTurno();
     salvar();
     resetarTempo();
     iniciarTempo();
@@ -474,18 +610,26 @@ document.addEventListener("keydown", (e) => {
     if(e.key === "Escape") fecharRevelacao();
 });
 
+/* Mostrar a resposta = a equipe já respondeu.
+   O cronômetro para na hora e o líder decide: acertou ou errou. */
 $("mostrar-resposta").onclick = () => {
-    if(!perguntaAtual){ toast("Sorteie uma pergunta primeiro.", "#ef8a00"); return; }
+    if(fase !== "respondendo" || !perguntaAtual){
+        toast("Sorteie uma pergunta primeiro.", "#ef8a00");
+        return;
+    }
+    pararTempo();
+    fase = "julgando";
     const r = $("resposta");
     r.classList.remove("hidden");
     r.innerHTML = "<strong>Resposta:</strong> " + perguntaAtual.resposta
         + (perguntaAtual.referencia ? `<div class="ref">📖 ${perguntaAtual.referencia}</div>` : "");
     mostrarRevelacao(perguntaAtual.resposta, perguntaAtual.referencia);
     somApito(false);
+    renderTurno();
 };
 
 /* =========================================================
-   12. MARCAR GOL
+   12. ACERTOU / ERROU — o gol é sempre da equipe da vez
    ========================================================= */
 
 function valorDoGol(){
@@ -497,35 +641,51 @@ function valorDoGol(){
     return v;
 }
 
-function marcarGol(lado){
-    if(tempoEsgotado){
-        toast("⏱️ Tempo esgotado — não vale gol nesta pergunta. Sorteie a próxima.", "#d32f2f");
-        somApito(false);
-        return;
-    }
+function marcarGol(){
     const p = getPartida();
+    const lado = estado.vez;
     const v = valorDoGol();
     if(lado === "a") p.sa += v; else p.sb += v;
 
-    const idx = lado === "a" ? p.a : p.b;
     const el = lado === "a" ? $("placar-a") : $("placar-b");
     el.classList.remove("pulse"); void el.offsetWidth; el.classList.add("pulse");
 
     atualizarPlacar();
     somGol();
     confeteBurst(30);
-    narrar(`GOOOOOL${v>1?", "+v+" gols":""} do ${nomeTime(idx)}!`, true);
-    toast(`⚽ +${v} para ${nomeTime(idx)}!`, "#159a43");
-
-    // consome pergunta e modificador
-    perguntaAtual = null;
-    modificador = null;
-    $("valor-pergunta").textContent = "?? Gols";
-    pararTempo();
+    narrar(`GOOOOOL${v>1?", "+v+" gols":""} do ${nomeDaVez()}!`, true);
+    toast(`⚽ +${v} para ${nomeDaVez()}!`, "#159a43");
 }
 
-$("gol-a").onclick = () => marcarGol("a");
-$("gol-b").onclick = () => marcarGol("b");
+// Fim do turno: consome o modificador, passa a vez e prepara o próximo sorteio
+function encerrarTurno(){
+    modificador = null;
+    pararTempo();
+    passarVez();
+    prepararTurno();
+    setTimeout(() => narrar(`Agora é a vez de ${nomeDaVez()}.`), 2000);
+}
+
+$("btn-acertou").onclick = () => {
+    if(fase !== "julgando") return;
+    marcarGol();
+    encerrarTurno();
+};
+
+$("btn-errou").onclick = () => {
+    if(fase !== "julgando") return;
+    const frase = FRASES_ERRO[Math.floor(Math.random()*FRASES_ERRO.length)];
+    somApito(false);
+    toast(`${frase} Sem gol para ${nomeDaVez()}.`, "#d32f2f");
+    narrar(frase.replace(/[^\p{L}\s!]/gu, "").trim(), true);
+    encerrarTurno();
+};
+
+$("btn-trocar-vez").onclick = () => {
+    passarVez();
+    prepararTurno();
+    toast(`🔁 Vez de ${nomeDaVez()}.`, "#37455f");
+};
 
 $("btn-menos-a").onclick = () => { const p=getPartida(); if(p.sa>0){p.sa--; atualizarPlacar();} };
 $("btn-menos-b").onclick = () => { const p=getPartida(); if(p.sb>0){p.sb--; atualizarPlacar();} };
@@ -554,9 +714,13 @@ function ativarCarta(i){
     if(i === 0){ modificador = { mult:2, texto:c.nome }; toast("⚽⚽ Ativado! O próximo gol vale EM DOBRO.", "#f5b400"); }
     else if(i === 1){ modificador = { valorFixo:3, texto:c.nome }; toast("🥅 Pênalti Bíblico! Próximo gol vale 3.", "#d32f2f"); }
     else if(i === 3){ modificador = { valorFixo:4, texto:c.nome }; toast("⭐ Pergunta Ouro! Próximo gol vale 4.", "#159a43"); }
-    else { // Ajuda da Equipe → +15s (e reabre a chance se o tempo já tinha esgotado)
-        tempo += 15; tempoEsgotado = false;
-        if(!rodando) iniciarTempo();
+    else { // Ajuda da Equipe → +15s no cronômetro da vez
+        if(fase === "aguardando"){
+            toast("🙋 Sorteie a pergunta antes de pedir ajuda.", "#ef8a00");
+            return;
+        }
+        tempo += 15;
+        if(!rodando && fase === "respondendo") iniciarTempo();
         atualizarTempo(); toast("🙋 +15 segundos para a equipe!", "#1666c9");
     }
     somApito(false);
@@ -574,7 +738,7 @@ function formatar(s){
 }
 
 function atualizarTempo(){
-    $("cronometro").textContent = formatar(tempo);
+    $("cronometro").textContent = formatar(Math.max(0, tempo));
     const pct = Math.max(0, Math.min(100, (tempo / TEMPO_PADRAO) * 100));
     const barra = $("barra-tempo");
     barra.style.width = pct + "%";
@@ -591,13 +755,18 @@ function iniciarTempo(){
     timer = setInterval(() => {
         tempo--;
         atualizarTempo();
-        if(tempo <= 0){
-            pararTempo();
-            tempoEsgotado = true;
-            somApito(true);
-            toast("⏱️ Tempo esgotado! Não vale gol nesta pergunta.", "#d32f2f");
-        }
+        if(tempo <= 0) esgotarTempo();
     }, 1000);
+}
+
+// Cronômetro zerou: a equipe perde a vez e a bola passa para a adversária
+function esgotarTempo(){
+    pararTempo();
+    const quemPerdeu = nomeDaVez();
+    somApito(true);
+    toast(`⏱️ Tempo esgotado! ${quemPerdeu} perdeu a vez.`, "#d32f2f");
+    narrar(`Tempo esgotado! ${quemPerdeu} perdeu a vez.`, true);
+    encerrarTurno();
 }
 
 function pararTempo(){
@@ -609,7 +778,6 @@ function pararTempo(){
 function resetarTempo(){
     pararTempo();
     tempo = TEMPO_PADRAO;
-    tempoEsgotado = false;
     atualizarTempo();
 }
 
@@ -645,8 +813,9 @@ function abrirPenaltis(){
     function golsPen(arr){ return arr.filter(x => x === "gol").length; }
 
     // Nova cobrança: sorteia uma pergunta e anuncia a equipe da vez
+    // (no Modo Card a pergunta é o card impresso, então não sorteia nada)
     function novaCobranca(){
-        pen.pergunta = sortearPergunta();
+        pen.pergunta = estado.modoCard ? null : sortearPergunta();
         pen.respVisivel = false;
         atualizarContador();
         salvar();
@@ -703,12 +872,15 @@ function abrirPenaltis(){
                 ${venc
                     ? `<button class="btn-verde btn-grande" id="pen-confirmar">✅ Avançar Vencedor</button>`
                     : `<div class="pen-pergunta">
-                          <div class="rotulo">📖 Pergunta da cobrança</div>
-                          <div class="pen-texto">${q.pergunta}</div>
-                          ${pen.respVisivel ? `<div class="pen-resp"><strong>Resposta:</strong> ${q.resposta}${q.referencia ? `<div class="ref">📖 ${q.referencia}</div>` : ``}</div>` : ``}
+                          ${q
+                            ? `<div class="rotulo">📖 Pergunta da cobrança</div>
+                               <div class="pen-texto">${q.pergunta}</div>
+                               ${pen.respVisivel ? `<div class="pen-resp"><strong>Resposta:</strong> ${q.resposta}${q.referencia ? `<div class="ref">📖 ${q.referencia}</div>` : ``}</div>` : ``}`
+                            : `<div class="rotulo">🧸 Modo Card Visual</div>
+                               <div class="pen-texto">Mostre o card impresso para ${nomeTime(vezIdx)}.</div>`}
                        </div>
                        <div class="pen-botoes">
-                          <button class="btn-azul btn" id="pen-mostrar">✅ Mostrar Resposta</button>
+                          ${q ? `<button class="btn-azul btn" id="pen-mostrar">✅ Mostrar Resposta</button>` : ``}
                           <button class="btn-verde btn-grande" id="pen-gol">⚽ ACERTOU (Gol)</button>
                           <button class="btn-vermelho btn-grande" id="pen-erro">✗ ERROU</button>
                        </div>`}
@@ -722,7 +894,7 @@ function abrirPenaltis(){
                 definirVencedor(venc);
             };
         } else {
-            $("pen-mostrar").onclick = () => {
+            if($("pen-mostrar")) $("pen-mostrar").onclick = () => {
                 pen.respVisivel = true;
                 mostrarRevelacao(pen.pergunta.resposta, pen.pergunta.referencia);
                 somApito(false);
@@ -798,8 +970,9 @@ function mostrarCampeao(idx){
 $("btn-nova-copa").onclick = () => {
     clearInterval(confeteLoop);
     localStorage.removeItem(CHAVE);
-    zerarHistorico();
-    estado = { numTimes:8, times:[], rodadas:[], atual:{r:0,j:0}, somOn:estado.somOn, vozOn:estado.vozOn };
+    zerarHistorico(); // nova copa → todas as perguntas voltam a ficar disponíveis
+    estado = { numTimes:8, times:[], rodadas:[], atual:{r:0,j:0}, vez:"a",
+               modoCard:estado.modoCard, somOn:estado.somOn, vozOn:estado.vozOn };
     renderSetup();
     mostrarTela("setup");
 };
@@ -860,11 +1033,9 @@ $("btn-reiniciar-partida").onclick = () => {
     const p = getPartida();
     p.sa = 0; p.sb = 0;
     atualizarPlacar();
-    perguntaAtual = null; modificador = null;
-    $("valor-pergunta").textContent = "?? Gols";
-    $("pergunta").textContent = 'Clique em “Sortear Pergunta” para começar';
-    $("resposta").classList.add("hidden");
-    resetarTempo();
+    modificador = null;
+    estado.vez = "a";
+    prepararTurno();
     toast("Placar zerado.", "#37455f");
 };
 
@@ -872,7 +1043,8 @@ $("btn-reiniciar-copa").onclick = () => {
     if(confirm("Reiniciar TODA a Copa? O chaveamento atual será perdido.")){
         localStorage.removeItem(CHAVE);
         zerarHistorico();
-        estado = { numTimes:estado.numTimes, times:[], rodadas:[], atual:{r:0,j:0}, somOn:estado.somOn, vozOn:estado.vozOn };
+        estado = { numTimes:estado.numTimes, times:[], rodadas:[], atual:{r:0,j:0}, vez:"a",
+                   modoCard:estado.modoCard, somOn:estado.somOn, vozOn:estado.vozOn };
         renderSetup();
         mostrarTela("setup");
     }
@@ -921,6 +1093,7 @@ function init(){
     renderCartas();
     const temJogo = carregar();
     aplicarBotoesAudio();
+    aplicarModoCard();
 
     if(temJogo){
         // Retoma a Copa em andamento

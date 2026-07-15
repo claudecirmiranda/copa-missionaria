@@ -75,6 +75,9 @@ const perguntas = {
 /*
 =========================================================
 SORTEIO SEM REPETIÇÃO
+
+historico guarda, por categoria, os índices já usados NESTA copa.
+É salvo no localStorage junto com o estado e zerado a cada nova copa.
 =========================================================
 */
 
@@ -87,42 +90,61 @@ const historico = {
 
 };
 
+// Todas as perguntas ainda não usadas, de todas as categorias
+function perguntasDisponiveis(gols = null){
+
+    const pool = [];
+
+    Object.keys(perguntas).forEach(k => {
+
+        const g = Number(k);
+        if(gols && g !== gols) return;
+
+        perguntas[g].forEach((_, i) => {
+
+            if(!historico[g].includes(i)) pool.push({ g, i });
+
+        });
+
+    });
+
+    return pool;
+
+}
+
 function sortearPergunta(gols = null){
 
-    // Escolhe categoria aleatória
-    if(!gols){
+    let pool = perguntasDisponiveis(gols);
+    let reiniciou = false;
 
-        const categorias = [1,2,3,4];
-        gols = categorias[Math.floor(Math.random()*categorias.length)];
+    // Banco esgotado: começa um novo ciclo para o jogo não travar
+    if(!pool.length){
+
+        if(gols) historico[gols] = [];
+        else Object.keys(historico).forEach(k => { historico[k] = []; });
+
+        pool = perguntasDisponiveis(gols);
+        reiniciou = true;
 
     }
 
-    // Reinicia quando acabar
-    if(historico[gols].length === perguntas[gols].length){
+    const escolha = pool[Math.floor(Math.random()*pool.length)];
 
-        historico[gols] = [];
+    historico[escolha.g].push(escolha.i);
 
-    }
-
-    let indice;
-
-    do{
-
-        indice = Math.floor(Math.random()*perguntas[gols].length);
-
-    }while(historico[gols].includes(indice));
-
-    historico[gols].push(indice);
+    const q = perguntas[escolha.g][escolha.i];
 
     return{
 
-        gols,
+        gols: escolha.g,
 
-        pergunta: perguntas[gols][indice].pergunta,
+        pergunta: q.pergunta,
 
-        resposta: perguntas[gols][indice].resposta,
+        resposta: q.resposta,
 
-        referencia: perguntas[gols][indice].referencia
+        referencia: q.referencia,
+
+        reiniciou
 
     };
 
